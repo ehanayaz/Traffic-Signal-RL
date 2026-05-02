@@ -26,6 +26,18 @@ export SUMO_HOME=/usr/share/sumo   # Linux typical path; adjust for your install
 source venv/bin/activate
 ```
 
+## GUI dashboard (optional)
+
+Browser UI (**Streamlit**) to **start/stop training** for phases A/B/C (subprocess + live CSV plots) and run **Showcase** mode: greedy rollouts with **SUMO-GUI** plus charts of the **same observation** the DQN sees (lane densities/queues, phase one-hot).
+
+```bash
+pip install -r gui/requirements-gui.txt
+# from repo root:
+streamlit run gui/app.py
+```
+
+Leave **`SUMO_HOME`** set in the environment where you launch Streamlit. Training writes the same `runs/phase_*_train.csv` files as the CLI; Showcase loads checkpoints from `checkpoints/` like `eval_gui*.py`.
+
 ---
 
 ## Quick reference — how to run each phase
@@ -186,6 +198,7 @@ Changing lane counts changes **observation size** — remove old **`checkpoints/
 | `single.*` | Phase A SUMO scenario |
 | `two.*` | Phase B SUMO scenario |
 | `phase_c.*`, `phase_c_plain.*` | Phase C SUMO scenario & plain inputs |
+| `gui/` | Streamlit dashboard (`app.py`, `obs_decode.py`, `showcase_rollout.py`, `train_runner.py`) |
 
 ## References
 

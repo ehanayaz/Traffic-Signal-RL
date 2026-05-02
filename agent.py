@@ -51,6 +51,12 @@ class DQNAgent:
             q = self.online(s)
             return int(q.argmax().item())
 
+    def q_values(self, state: np.ndarray) -> np.ndarray:
+        """Return Q(s, a) for every discrete action (same net forward as greedy act, no ε)."""
+        with torch.no_grad():
+            s = torch.FloatTensor(np.asarray(state, dtype=np.float32)).to(self.device)
+            return self.online(s).detach().cpu().numpy()
+
     def push(self, *args: Any) -> None:
         self.buffer.push(*args)
 
