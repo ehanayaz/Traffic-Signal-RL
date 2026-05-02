@@ -1,28 +1,36 @@
+"""Dueling DQN — compact trunk (128) matching Traffic-Control-RL / sumo-rl obs scale."""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class DQN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
-        super(DQN, self).__init__()
-        # Input layer to first hidden layer
-        self.fc1 = nn.Linear(input_size, hidden_size)
-        # First hidden layer to second hidden layer
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
-        # Second hidden layer to output layer (Q-values)
-        self.fc3 = nn.Linear(hidden_size, output_size)
 
-    def forward(self, x):
-        # Pass the state through the network with ReLU activation functions
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        # The output layer doesn't use ReLU because Q-values can be negative
-        return self.fc3(x)
+class DuelingDQN(nn.Module):
+    """Q(s,a) = V(s) + A(s,a) - mean_a A(s,a)."""
 
-# Quick test to ensure PyTorch is working
-if __name__ == "__main__":
-    # State: 4 lanes + 1 phase = 5. Actions: Keep or Switch = 2.
-    net = DQN(input_size=5, hidden_size=64, output_size=2)
-    dummy_state = torch.tensor([10.0, 2.0, 0.0, 5.0, 0.0]) # Example state
-    q_values = net(dummy_state)
-    print(f"Network built successfully! Output Q-Values: {q_values.detach().numpy()}")
+    def __init__(self, state_size: int, action_size: int, hidden_size: int = 128):
+        super().__init__()
+        self.input = nn.Linear(state_size, hidden_size)
+        self.main = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(inplace=True),
+        )
+        self.value = nn.Linear(hidden_size, 1)
+        self.advantage = nn.Linear(hidden_size, action_size)
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight, nonlinearity="relu")
+                nn.init.zeros_(m.bias)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        single = x.dim() == 1
+        if single:
+            x = x.unsqueeze(0)
+        h = F.relu(self.input(x))
+        h = self.main(h)
+        v = self.value(h)
+        a = self.advantage(h)
+        q = v + a - a.mean(dim=1, keepdim=True)
+        return q.squeeze(0) if single else q
