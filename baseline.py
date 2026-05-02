@@ -17,12 +17,12 @@ import sumo_rl  # noqa: F401
 from train import _root, load_config, make_env
 
 
-def run_baseline() -> dict:
+def run_baseline(cfg: dict | None = None, *, write_default_path: bool = True) -> dict:
     if "SUMO_HOME" not in os.environ:
         print("ERROR: Set SUMO_HOME.", file=sys.stderr)
         sys.exit(1)
 
-    cfg = load_config()
+    cfg = cfg if cfg is not None else load_config()
     env = make_env(cfg, fixed_ts=True)
     state, info = env.reset()
     total_r = 0.0
@@ -50,12 +50,14 @@ def run_baseline() -> dict:
         "rl_steps": n,
         "horizon_seconds": cfg["env"]["num_seconds"],
     }
-    p = _root() / "runs" / "phase_a_baseline.json"
-    p.parent.mkdir(parents=True, exist_ok=True)
-    with open(p, "w", encoding="utf-8") as f:
-        json.dump(out, f, indent=2)
-    print(json.dumps(out, indent=2))
-    print(f"Wrote {p}", flush=True)
+    out["sumo_seed"] = cfg["env"].get("sumo_seed")
+    if write_default_path:
+        p = _root() / "runs" / "phase_a_baseline.json"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(out, f, indent=2)
+        print(json.dumps(out, indent=2))
+        print(f"Wrote {p}", flush=True)
     return out
 
 

@@ -45,6 +45,16 @@ pip install -r requirements.txt
 
 Hyperparameters and paths live in **`config.yaml`** (episode length, `delta_time`, `min_green`, epsilon schedule, validation cadence).
 
+### Lock + multi-seed stress (optional)
+
+After a good training run, tag the repo (`git tag phase-a-complete`) and check **generalization across SUMO seeds** (same net/routes, different insertions randomness):
+
+```bash
+python stress_phase_a.py --seeds 7,42,1337 --episodes 80
+```
+
+Writes `runs/stress/phase_a_stress_summary.json` and a repo-root **`phase_a_stress_report.json`** (for committing). Each seed gets baseline metrics plus a shortened train run; `beats_baseline` compares best validation wait to that seed’s baseline.
+
 ## Success criterion (Phase A)
 
 Compare **validation `val_mean_wait`** in `runs/phase_a_train.csv` (lower is better) to **`mean_system_mean_waiting_time`** from `runs/phase_a_baseline.json`. RL should beat fixed-time on that metric after sufficient episodes.

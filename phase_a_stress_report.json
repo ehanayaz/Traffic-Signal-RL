@@ -1,0 +1,30 @@
+{
+  "seeds": [
+    42,
+    7
+  ],
+  "episodes_per_seed": 22,
+  "beats_baseline_count": 2,
+  "total_runs": 2,
+  "rows": [
+    {
+      "sumo_seed": 42,
+      "baseline_mean_wait": 14.944075,
+      "best_val_mean_wait": 5.44523,
+      "beats_baseline": true,
+      "stress_episodes": 22,
+      "log_csv": "/home/eam/Documents/ML_Robo/traffic_rl_project/runs/stress/seed_42/train.csv",
+      "best_checkpoint": "/home/eam/Documents/ML_Robo/traffic_rl_project/checkpoints/stress/seed_42/best.pth"
+    },
+    {
+      "sumo_seed": 7,
+      "baseline_mean_wait": 14.871147,
+      "best_val_mean_wait": 4.372467,
+      "beats_baseline": true,
+      "stress_episodes": 22,
+      "log_csv": "/home/eam/Documents/ML_Robo/traffic_rl_project/runs/stress/seed_7/train.csv",
+      "best_checkpoint": "/home/eam/Documents/ML_Robo/traffic_rl_project/checkpoints/stress/seed_7/best.pth"
+    }
+  ],
+  "note": "beats_baseline: best_val_mean_wait < baseline_mean_wait for that seed."
+}

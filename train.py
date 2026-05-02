@@ -112,12 +112,12 @@ def run_rollout(
     return total_r, mean_wait, n, mean_loss, gstep
 
 
-def train() -> None:
+def train(cfg: dict | None = None) -> dict:
     if "SUMO_HOME" not in os.environ:
         print("ERROR: Set SUMO_HOME to your SUMO installation.", file=sys.stderr)
         sys.exit(1)
 
-    cfg = load_config()
+    cfg = cfg if cfg is not None else load_config()
     root = _root()
     tcfg = cfg["training"]
     vcfg = cfg["validation"]
@@ -255,6 +255,8 @@ def train() -> None:
     with open(root / out["summary_json"], "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
     print(f"Summary -> {root / out['summary_json']}", flush=True)
+    summary["sumo_seed"] = cfg["env"].get("sumo_seed")
+    return summary
 
 
 if __name__ == "__main__":
