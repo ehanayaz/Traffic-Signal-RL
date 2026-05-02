@@ -1,0 +1,40 @@
+References for adaptive traffic signal control (ATSC) — state, reward, architecture
+==================================================================================
+
+State / observation (single isolated intersection)
+--------------------------------------------------
+Typical engineered features used across IntelliLight, LibSignal / CityFlow baselines, and surveys:
+  • Per-approach queue or occupancy (often halting count or presence matrix)
+  • Per-approach delay / waiting time aggregates (mean or total wait)
+  • Current signal phase (one-hot or index)
+  • Optional: approach volume / vehicle count on incoming lanes (captures moving + queued)
+
+Survey overview (problem formulation, MARL, general trends):
+  • Haydari & Deepak (2022). “Deep reinforcement learning for intelligent transportation systems…” — Artificial Intelligence Review / Springer (survey).
+
+Deep RL ATSC (DQN family, real-world style rewards):
+  • Wei et al. (2018). “IntelliLight: A Reinforcement Learning Approach for Intelligent Traffic Light Control.” KDD.
+    — Uses measurable traffic variables (queues / waits / delays) with composite rewards.
+
+Max-pressure–aligned RL:
+  • Wei et al. (2019). “PressLight: Learning Max Pressure Control for Signalized Intersections in Arterial Network.” KDD.
+    — Grounds reward design in pressure logic for throughput / delay objectives.
+
+Open benchmarks / code ecosystems:
+  • CityFlow (large-scale simulator used with RL benchmarks).
+  • LibSignal / Advanced-XLight repositories — commonly pair Double/Dueling DQN variants with PER.
+  • Lucas Alegre. “sumo-rl” — Gymnasium / PettingZoo environments for traffic signal control in SUMO
+    (default reward e.g. diff-waiting-time). https://github.com/LucasAlegre/sumo-rl
+
+Architecture (Phase A codebase)
+-------------------------------
+  • Gymnasium + sumo-rl: standardized observation/reward, fewer custom TraCI bugs.
+  • Dueling DQN + Double DQN + uniform replay (simple stable baseline; cf. Traffic-Control-RL style).
+
+Evaluation metrics (papers / practice)
+---------------------------------------
+Commonly reported where simulator allows:
+  • Average travel time (ATT) or delay per vehicle
+  • Throughput (trip completions or intersection throughput)
+  • Average queue length over time
+  • Number of stops / hard braking (optional)
