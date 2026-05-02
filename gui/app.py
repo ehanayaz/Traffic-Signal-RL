@@ -12,6 +12,7 @@ import os
 import queue
 import sys
 import threading
+from typing import cast
 from datetime import timedelta
 from pathlib import Path
 
@@ -37,8 +38,17 @@ from gui.train_runner import Phase, TrainJob, csv_path_for_phase, train_script_p
 st.set_page_config(page_title="Traffic RL dashboard", layout="wide")
 
 
-def _sumo_home_status() -> str:
-    return os.environ.get("SUMO_HOME", "(not set)")
+def _sync_showcase_if_phase_changed(phase: Phase) -> None:
+    """Avoid stale B/C payloads and decode errors after switching scenario phase."""
+    key = "_dashboard_showcase_sync_phase"
+    if st.session_state.get(key) == phase:
+        return
+    st.session_state[key] = phase
+    st.session_state.show_snap = None
+    st.session_state.show_q = queue.Queue(maxsize=4)
+    ev = st.session_state.get("show_stop_ev")
+    if ev is not None:
+        ev.set()
 
 
 def _train_columns(phase: Phase) -> dict[str, list[str]]:
@@ -282,7 +292,7 @@ def _render_showcase_step(
             title=f"{title_prefix}Q(s,·) per action — green bar = argmax (decision)",
         )
 
-    with st.expander("Full input breakdown (tables + charts)", expanded=True):
+    with st.expander("Full input breakdown (tables + charts)", expanded=False):
         _render_observation_inputs(dec, title_prefix)
         _render_obs_bars(dec, title_prefix)
 
@@ -299,12 +309,20 @@ def render_showcase_tab(phase: Phase) -> None:
     delay = st.slider("Step delay (seconds)", 0.0, 0.5, 0.03, 0.01)
 
     if phase == "B":
-        tls_pick = st.radio("Inspect TLS", ["(all)", "B", "E"], horizontal=True)
+        tls_pick = st.radio(
+            "Inspect TLS",
+            ["(all)", "B", "E"],
+            horizontal=True,
+            width="stretch",
+            key="inspect_tls_B",
+        )
     elif phase == "C":
         tls_pick = st.radio(
             "Inspect TLS",
             ["(all)", "A0", "A1", "B0", "B1", "C0", "C1"],
             horizontal=True,
+            width="stretch",
+            key="inspect_tls_C",
         )
     else:
         tls_pick = "(all)"
@@ -402,8 +420,11 @@ def render_showcase_tab(phase: Phase) -> None:
             st.error(payload["error"])
             return
 
+        pk = payload.get("phase_key")
+        if pk != phase:
+            return
+
         st.caption(f"Step **{step}**")
-        pk = payload.get("phase_key", "?")
 
         if pk == "A":
             info = payload.get("info") or {}
@@ -446,11 +467,12 @@ def render_showcase_tab(phase: Phase) -> None:
 
         pick = tls_pick
         ids_show = tls_ids if pick == "(all)" or pick.startswith("(") else [pick] if pick in obs_map else tls_ids
-        multi = len(ids_show) > 1
+        to_show = [tid for tid in ids_show if tid in obs_map]
+        if not to_show:
+            return
+        multi = len(to_show) > 1
 
-        for tid in ids_show:
-            if tid not in obs_map:
-                continue
+        def render_one_tls(tid: str) -> None:
             obs = obs_map[tid]
             if phase == "B":
                 ng = int(payload.get("n_green_phases", 2))
@@ -473,15 +495,44 @@ def render_showcase_tab(phase: Phase) -> None:
             except Exception as ex:
                 st.warning(f"{tid}: decode error {ex}")
 
+        if len(to_show) == 1:
+            render_one_tls(to_show[0])
+        else:
+            # Full-width control (st.tabs labels stay tiny); selection persists via key.
+            view_tid = st.segmented_control(
+                "View traffic light (TLS)",
+                options=to_show,
+                default=to_show[0],
+                key=f"showcase_tls_view_{phase}",
+                label_visibility="visible",
+                width="stretch",
+            )
+            chosen = view_tid if view_tid in to_show else to_show[0]
+            render_one_tls(str(chosen))
+
     poll_showcase()
 
 
 def main() -> None:
-    st.title("Traffic RL dashboard")
-    with st.sidebar:
-        st.header("Setup")
-        phase: Phase = st.radio("Phase", ["A", "B", "C"], horizontal=True)
-        st.text_area("SUMO_HOME", value=_sumo_home_status(), height=68, disabled=True)
+    left, right = st.columns([2, 3], vertical_alignment="bottom")
+    with left:
+        st.title("Traffic RL dashboard")
+    with right:
+        sel = st.segmented_control(
+            "Scenario phase",
+            options=["A", "B", "C"],
+            default="A",
+            key="dashboard_phase",
+            label_visibility="visible",
+            width="stretch",
+        )
+    phase: Phase = cast(Phase, sel if sel in ("A", "B", "C") else "A")
+    _sync_showcase_if_phase_changed(phase)
+
+    if not os.environ.get("SUMO_HOME"):
+        st.warning(
+            "Set **SUMO_HOME** before Train or Showcase (e.g. `export SUMO_HOME=/usr/share/sumo`)."
+        )
 
     tab_train, tab_show, tab_about = st.tabs(["Train", "Showcase", "About"])
 
