@@ -1,0 +1,6 @@
+# Phase A: SUMO-RL + Gymnasium (requires SUMO installed + SUMO_HOME set)
+torch>=2.0
+numpy>=1.24
+gymnasium>=1.0
+sumo-rl>=1.4
+PyYAML>=6.0

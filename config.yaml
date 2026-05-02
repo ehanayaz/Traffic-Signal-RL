@@ -1,0 +1,42 @@
+# Phase A — single intersection via SUMO-RL (see README; IntelliLight-style rewards use
+# diff-waiting-time / queue signals inside sumo-rl by default).
+
+paths:
+  net_file: "single.net.xml"
+  route_file: "single.rou.xml"
+
+# SUMO-RL env (defaults align with Lucas Alegre sumo-rl / Traffic-Control-RL style)
+env:
+  num_seconds: 1500          # episode horizon (sim seconds)
+  delta_time: 5              # one RL step = delta_time sim seconds
+  yellow_time: 4
+  min_green: 10              # minimum green before phase change (reduces flip-flop)
+  waiting_time_memory: 1000
+  max_depart_delay: 0
+  sumo_warnings: false
+  reward_fn: "diff-waiting-time"   # change in accumulated waiting time (common in ATSC lit.)
+  sumo_seed: 42                    # fixed for reproducible train/val; use "random" to vary
+
+training:
+  episodes: 200
+  lr: 0.001
+  gamma: 0.99
+  batch_size: 128
+  max_memory: 100000
+  max_grad: 1.0
+  epsilon_start: 1.0
+  epsilon_end: 0.01
+  epsilon_decay: 0.995          # per episode (multiplicative), like Traffic-Control-RL config
+  target_update_tau: 0.05       # soft update each target_sync_steps
+  target_sync_steps: 500        # env steps between target soft-updates
+  hidden_size: 128              # Dueling trunk (Traffic-Control-RL scale)
+
+validation:
+  every_episodes: 10             # run greedy rollout + KPIs
+  episodes: 3                   # shorter rollouts for val stability
+
+outputs:
+  log_csv: "runs/phase_a_train.csv"
+  summary_json: "runs/phase_a_summary.json"
+  checkpoint_dir: "checkpoints"
+  best_name: "best_phase_a.pth"
