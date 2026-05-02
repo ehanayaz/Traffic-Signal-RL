@@ -1,10 +1,16 @@
-# Traffic RL — Phase A (SUMO-RL)
+# Traffic RL — phases A, B, and C (SUMO-RL)
 
-Single-intersection adaptive traffic signal control using **Gymnasium + [sumo-rl](https://github.com/LucasAlegre/sumo-rl)** (Lucas Alegre), **Double Dueling DQN**, and **uniform experience replay** — aligned with simple ATSC stacks such as [Traffic-Control-RL](https://github.com/CodeKnight314/Traffic-Control-RL) and common paper practice (queue / waiting-time–based rewards; default sumo-rl reward `diff-waiting-time`).
+Adaptive traffic signal control with **Gymnasium + [sumo-rl](https://github.com/LucasAlegre/sumo-rl)** (Lucas Alegre), **Double Dueling DQN**, and **uniform experience replay** — aligned with common ATSC practice (default reward `diff-waiting-time`). The repo builds up in three stages:
+
+| Phase | Scenario | Agents | What it exercises |
+|-------|----------|--------|-------------------|
+| **A** | One intersection (`single.net.xml`) | Single DQN | Basics: Gym `sumo-rl-v0`, validation, one checkpoint |
+| **B** | Two TLS on a corridor (`two.net.xml`) | IDQN (2 agents) | Multi-agent joint actions, per-TLS checkpoints |
+| **C** | Six TLS on a 2×3 grid (`phase_c.net.xml`) | IDQN (6 agents) | Open perimeter, asymmetric links, optional trip metrics |
 
 ## Prerequisites
 
-- **SUMO** installed and **`SUMO_HOME`** set (sumo-rl requires this).
+- **SUMO** installed and **`SUMO_HOME`** set (required by sumo-rl).
 - Python 3.10+ recommended.
 
 ```bash
@@ -13,17 +19,46 @@ source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Phase A workflow
+Every phase assumes:
 
-1. **Baseline (fixed-time program in `single.net.xml`)** — KPI to beat:
+```bash
+export SUMO_HOME=/usr/share/sumo   # Linux typical path; adjust for your install
+source venv/bin/activate
+```
+
+---
+
+## Quick reference — how to run each phase
+
+Use this order: **baseline → train → GUI eval** (GUI needs trained weights).
+
+| Phase | Baseline | Train | Config | Logs / checkpoints | GUI eval |
+|-------|----------|-------|--------|--------------------|----------|
+| **A** | `python baseline.py` | `python train.py` or `python main.py` | `config.yaml` | `runs/phase_a_*.csv/json`, `checkpoints/best_phase_a.pth` | `python eval_gui.py` or `python test.py` |
+| **B** | `python baseline_phase_b.py` | `python train_phase_b.py` | `config_phase_b.yaml` | `runs/phase_b_train.csv`, `checkpoints/phase_b/best_<tls>.pth` | `python eval_gui_phase_b.py` or `python test_phase_b.py` |
+| **C** | `python baseline_phase_c.py` | `python train_phase_c.py` or `python main_phase_c.py` | `config_phase_c.yaml` | `runs/phase_c_train.csv`, `checkpoints/phase_c/best_<tls>.pth` | `python eval_gui_phase_c.py` or `python test_phase_c.py` |
+
+**Optional env overrides:** `TRAFFIC_RL_CONFIG`, `TRAFFIC_RL_CONFIG_B`, `TRAFFIC_RL_CONFIG_C` point to alternate YAML paths if you fork configs.
+
+**Success (all phases):** compare validation **mean system waiting time** in the training CSV to the same metric from the baseline JSON — **lower is better**. Phase C also logs optional **trip duration** columns when `progression.tripinfo` is enabled in `config_phase_c.yaml`.
+
+---
+
+## Phase A — single intersection
+
+- **SUMO files:** `single.net.xml`, `single.rou.xml` (and related).
+- **Algorithm:** one **Double Dueling DQN** via `gym.make("sumo-rl-v0", ...)`.
+- **Baseline:** fixed-time program in the net.
+
+1. **Baseline**
 
    ```bash
    python baseline.py
    ```
 
-   Writes `runs/phase_a_baseline.json` (mean system waiting time, etc.).
+   Writes `runs/phase_a_baseline.json`.
 
-2. **Train** (logs CSV + saves **best** checkpoint by **lowest validation mean waiting time**):
+2. **Train**
 
    ```bash
    python train.py
@@ -31,11 +66,9 @@ pip install -r requirements.txt
    python main.py
    ```
 
-   - Training log: `runs/phase_a_train.csv`
-   - Summary: `runs/phase_a_summary.json`
-   - Checkpoints: `checkpoints/best_phase_a.pth`, `checkpoints/last_phase_a.pth`
+   Hyperparameters: **`config.yaml`**. Outputs: `runs/phase_a_train.csv`, `runs/phase_a_summary.json`, `checkpoints/best_phase_a.pth`, `checkpoints/last_phase_a.pth`.
 
-3. **Evaluate with GUI** (greedy policy):
+3. **Evaluate (SUMO-GUI, greedy)**
 
    ```bash
    python eval_gui.py
@@ -43,27 +76,22 @@ pip install -r requirements.txt
    python test.py
    ```
 
-Hyperparameters and paths live in **`config.yaml`** (episode length, `delta_time`, `min_green`, epsilon schedule, validation cadence).
+### Phase A — optional stress sweep
 
-### Lock + multi-seed stress (optional)
-
-After a good training run, tag the repo (`git tag phase-a-complete`) and check **generalization across SUMO seeds** (same net/routes, different insertions randomness):
+Same net/routes, multiple SUMO seeds:
 
 ```bash
 python stress_phase_a.py --seeds 7,42,1337 --episodes 80
 ```
 
-Writes `runs/stress/phase_a_stress_summary.json` and a repo-root **`phase_a_stress_report.json`** (for committing). Each seed gets baseline metrics plus a shortened train run; `beats_baseline` compares best validation wait to that seed’s baseline.
+Writes `runs/stress/phase_a_stress_summary.json` and `phase_a_stress_report.json`.
 
-## Success criterion (Phase A)
-
-Compare **validation `val_mean_wait`** in `runs/phase_a_train.csv` (lower is better) to **`mean_system_mean_waiting_time`** from `runs/phase_a_baseline.json`. RL should beat fixed-time on that metric after sufficient episodes.
+---
 
 ## Phase B — two intersections (corridor)
 
-Two TLS (**`B`** and **`E`**) on the SUMO-RL **double-intersection** scenario (`two.net.xml`, `two.rou.xml`, copied from the sumo-rl package). **Independent Double DQN (IDQN):** one `DQNAgent` per signal, separate replay buffers; actions every RL step are joint `{B: a0, E: a1}`.
-
-Training uses **`SumoEnvironment`** with `single_agent=False` (PettingZoo `parallel_env` is avoided here due to version quirks).
+- **SUMO files:** `two.net.xml`, `two.rou.xml`, `two.sumocfg` (SUMO-RL “double” scenario; TLS **B** and **E**).
+- **Algorithm:** **IDQN** — one `DQNAgent` per TLS; `SumoEnvironment(..., single_agent=False)` (PettingZoo `parallel_env` is not used here for stability).
 
 1. **Baseline**
 
@@ -71,7 +99,7 @@ Training uses **`SumoEnvironment`** with `single_agent=False` (PettingZoo `paral
    python baseline_phase_b.py
    ```
 
-   Writes `runs/phase_b_baseline.json` (`mean_system_mean_waiting_time`).
+   Writes `runs/phase_b_baseline.json`.
 
 2. **Train**
 
@@ -79,13 +107,9 @@ Training uses **`SumoEnvironment`** with `single_agent=False` (PettingZoo `paral
    python train_phase_b.py
    ```
 
-   Config: **`config_phase_b.yaml`**. Logs **`runs/phase_b_train.csv`**. Saves **`checkpoints/phase_b/best_<tls_id>.pth`** when **validation mean `system_mean_waiting_time`** (greedy, averaged over val episodes) improves.
+   Config: **`config_phase_b.yaml`**. Checkpoints: **`checkpoints/phase_b/best_B.pth`**, **`best_E.pth`** (and `last_*`).
 
-3. **Success criterion**
-
-   Compare validation **`val_system_mean_wait`** (from the CSV) to Phase B baseline **`mean_system_mean_waiting_time`**. Lower is better.
-
-4. **SUMO-GUI (greedy, both TLS)**
+3. **Evaluate (SUMO-GUI)**
 
    ```bash
    python eval_gui_phase_b.py
@@ -93,34 +117,13 @@ Training uses **`SumoEnvironment`** with `single_agent=False` (PettingZoo `paral
    python test_phase_b.py
    ```
 
-   Loads **`checkpoints/phase_b/best_B.pth`** and **`best_E.pth`** (falls back to **`last_*.pth`**).
+---
 
-## Phase C — 2×3 grid (six TLS), open perimeter + asymmetric spacing
+## Phase C — 2×3 grid (six TLS), open perimeter
 
-Six signalized junctions **`A0`, `A1`, `B0`, `B1`, `C0`, `C1`** on a three-column × two-row mesh (`phase_c.net.xml`). Edges use **three lanes** per direction (similar spirit to the multi-lane Phase B corridor — richer than a single-lane grid). **`netgenerate`** added **`--grid.x-attach-length`** / **`--grid.y-attach-length`** so each side of the rectangle has **approach edges** to **`dead_end`** fringe nodes (`top*`, `bottom*`, `left*`, `right*`). Demand uses **fringe O/Ds** (see **`phase_c.rou.xml`**, regenerated with **`randomTrips`** using **`--min-distance`** and **`--fringe-factor`**) — not a sealed internal-only cordon.
-
-The middle column **`B`** is shifted horizontally in **`phase_c_plain.nod.xml`** (unequal A–B vs B–C); **`B1`** is slightly offset vertically versus **`A1`/`C1`** before **`netconvert`**.
-
-**IDQN:** one **`DQNAgent` per TLS**, each sized from **`env.observation_spaces(tid)`** / **`env.action_spaces(tid)`** (with the open network, these are often **uniform** across the six signals; the code still supports different sizes if the net changes).
-
-**Primary KPI** remains validation **`val_system_mean_wait`**. **Progression-oriented metrics** (optional trip-level): **`val_mean_trip_duration`** / **`val_p95_trip_duration`** from SUMO **`tripinfo`** (see `progression.tripinfo` in **`config_phase_c.yaml`**).
-
-Rebuild **`phase_c.net.xml`**: generate a base grid with attach + **`--default.lanenumber 3`**, export plain with **`netconvert --sumo-net-file … --plain-output-prefix phase_c_plain`**, edit **`phase_c_plain.nod.xml`** for **B** asymmetry, then:
-
-```bash
-netconvert --node-files phase_c_plain.nod.xml --edge-files phase_c_plain.edg.xml \
-  --connection-files phase_c_plain.con.xml --tllogic-files phase_c_plain.tll.xml \
-  -o phase_c.net.xml
-```
-
-Changing lane counts **changes observation size**; retrain Phase C or delete old **`checkpoints/phase_c/*.pth`**.
-
-Regenerate trips (example):
-
-```bash
-python $SUMO_HOME/tools/randomTrips.py -n phase_c.net.xml -o phase_c.rou.xml \
-  -b 0 -e 3000 -p 4.0 --seed 42 --fringe-factor 6 --min-distance 180 --validate
-```
+- **SUMO files:** `phase_c.net.xml`, `phase_c.rou.xml`, `phase_c.sumocfg`; editable rebuild inputs: `phase_c_plain.{nod,edg,con,tll}.xml`.
+- **Scenario:** six TLS **`A0`…`C1`**; **three lanes** per edge; **attach** roads on the rectangle perimeter (fringe **O/D**); middle column **B** shifted in **`phase_c_plain.nod.xml`** for unequal link lengths.
+- **Algorithm:** **IDQN** — one agent per TLS; observation/action sizes come from sumo-rl per signal (often uniform with the current net).
 
 1. **Baseline**
 
@@ -128,23 +131,42 @@ python $SUMO_HOME/tools/randomTrips.py -n phase_c.net.xml -o phase_c.rou.xml \
    python baseline_phase_c.py
    ```
 
-   Writes `runs/phase_c_baseline.json` (system wait + mean / p95 trip duration when tripinfo is enabled).
+   Writes `runs/phase_c_baseline.json` (system wait; trip mean / p95 when tripinfo is enabled).
 
 2. **Train**
 
    ```bash
    python train_phase_c.py
+   # or
+   python main_phase_c.py
    ```
 
-   Config: **`config_phase_c.yaml`**. Logs **`runs/phase_c_train.csv`**. Checkpoints **`checkpoints/phase_c/best_<tls_id>.pth`**.
+   Config: **`config_phase_c.yaml`**. Checkpoints: **`checkpoints/phase_c/best_<tls_id>.pth`**. Training CSV may include **`val_mean_trip_duration`** / **`val_p95_trip_duration`** if `progression.tripinfo` is on.
 
-3. **SUMO-GUI**
+3. **Evaluate (SUMO-GUI)**
 
    ```bash
    python eval_gui_phase_c.py
    # or
    python test_phase_c.py
    ```
+
+### Rebuilding Phase C from plain XML
+
+After editing geometry or lane counts, rebuild the net and regenerate demand:
+
+```bash
+netconvert --node-files phase_c_plain.nod.xml --edge-files phase_c_plain.edg.xml \
+  --connection-files phase_c_plain.con.xml --tllogic-files phase_c_plain.tll.xml \
+  -o phase_c.net.xml
+
+python $SUMO_HOME/tools/randomTrips.py -n phase_c.net.xml -o phase_c.rou.xml \
+  -b 0 -e 3000 -p 4.0 --seed 42 --fringe-factor 6 --min-distance 180 --validate
+```
+
+Changing lane counts changes **observation size** — remove old **`checkpoints/phase_c/*.pth`** and train again.
+
+---
 
 ## Repository layout
 
@@ -153,19 +175,17 @@ python $SUMO_HOME/tools/randomTrips.py -n phase_c.net.xml -o phase_c.rou.xml \
 | `config.yaml` | Phase A paths & hyperparameters |
 | `config_phase_b.yaml` | Phase B paths & hyperparameters |
 | `config_phase_c.yaml` | Phase C paths & hyperparameters |
-| `train.py` | Phase A training + validation |
-| `train_phase_b.py` | Phase B multi-agent (IDQN) training |
-| `train_phase_c.py` | Phase C multi-agent (IDQN per TLS) |
+| `train.py` / `main.py` | Phase A training + validation |
+| `train_phase_b.py` | Phase B multi-agent (IDQN) |
+| `train_phase_c.py` / `main_phase_c.py` | Phase C multi-agent (IDQN) |
 | `baseline.py` / `baseline_phase_b.py` / `baseline_phase_c.py` | Fixed-time baselines |
-| `agent.py` | Double Dueling DQN, uniform replay |
-| `model.py` | Dueling network (compact 128 trunk) |
-| `replay.py` | Uniform replay buffer |
-| `eval_gui.py` / `eval_gui_phase_b.py` / `eval_gui_phase_c.py` | GUI eval |
-| `test_phase_b.py` / `test_phase_c.py` | Shortcuts for Phase B / C GUI |
+| `agent.py`, `model.py`, `replay.py` | Double Dueling DQN + replay |
+| `eval_gui.py` / `eval_gui_phase_b.py` / `eval_gui_phase_c.py` | Greedy GUI eval |
+| `test.py`, `test_phase_b.py`, `test_phase_c.py` | Shortcuts to GUI eval |
 | `stress_phase_a.py` | Multi-seed Phase A stress sweep |
 | `single.*` | Phase A SUMO scenario |
-| `two.*` | Phase B SUMO scenario (double corridor) |
-| `phase_c.*`, `phase_c_plain.*` | Phase C SUMO scenario & editable plain inputs |
+| `two.*` | Phase B SUMO scenario |
+| `phase_c.*`, `phase_c_plain.*` | Phase C SUMO scenario & plain inputs |
 
 ## References
 
