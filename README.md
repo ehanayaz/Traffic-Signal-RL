@@ -95,9 +95,56 @@ Training uses **`SumoEnvironment`** with `single_agent=False` (PettingZoo `paral
 
    Loads **`checkpoints/phase_b/best_B.pth`** and **`best_E.pth`** (falls back to **`last_*.pth`**).
 
-## Phase C (next)
+## Phase C — 2×3 grid (six TLS), open perimeter + asymmetric spacing
 
-- **2×2 grid:** four TLS, same IDQN pattern or shared weights + PettingZoo parallel API once versions align; add neighbor-aware observations if needed.
+Six signalized junctions **`A0`, `A1`, `B0`, `B1`, `C0`, `C1`** on a three-column × two-row mesh (`phase_c.net.xml`). Edges use **three lanes** per direction (similar spirit to the multi-lane Phase B corridor — richer than a single-lane grid). **`netgenerate`** added **`--grid.x-attach-length`** / **`--grid.y-attach-length`** so each side of the rectangle has **approach edges** to **`dead_end`** fringe nodes (`top*`, `bottom*`, `left*`, `right*`). Demand uses **fringe O/Ds** (see **`phase_c.rou.xml`**, regenerated with **`randomTrips`** using **`--min-distance`** and **`--fringe-factor`**) — not a sealed internal-only cordon.
+
+The middle column **`B`** is shifted horizontally in **`phase_c_plain.nod.xml`** (unequal A–B vs B–C); **`B1`** is slightly offset vertically versus **`A1`/`C1`** before **`netconvert`**.
+
+**IDQN:** one **`DQNAgent` per TLS**, each sized from **`env.observation_spaces(tid)`** / **`env.action_spaces(tid)`** (with the open network, these are often **uniform** across the six signals; the code still supports different sizes if the net changes).
+
+**Primary KPI** remains validation **`val_system_mean_wait`**. **Progression-oriented metrics** (optional trip-level): **`val_mean_trip_duration`** / **`val_p95_trip_duration`** from SUMO **`tripinfo`** (see `progression.tripinfo` in **`config_phase_c.yaml`**).
+
+Rebuild **`phase_c.net.xml`**: generate a base grid with attach + **`--default.lanenumber 3`**, export plain with **`netconvert --sumo-net-file … --plain-output-prefix phase_c_plain`**, edit **`phase_c_plain.nod.xml`** for **B** asymmetry, then:
+
+```bash
+netconvert --node-files phase_c_plain.nod.xml --edge-files phase_c_plain.edg.xml \
+  --connection-files phase_c_plain.con.xml --tllogic-files phase_c_plain.tll.xml \
+  -o phase_c.net.xml
+```
+
+Changing lane counts **changes observation size**; retrain Phase C or delete old **`checkpoints/phase_c/*.pth`**.
+
+Regenerate trips (example):
+
+```bash
+python $SUMO_HOME/tools/randomTrips.py -n phase_c.net.xml -o phase_c.rou.xml \
+  -b 0 -e 3000 -p 4.0 --seed 42 --fringe-factor 6 --min-distance 180 --validate
+```
+
+1. **Baseline**
+
+   ```bash
+   python baseline_phase_c.py
+   ```
+
+   Writes `runs/phase_c_baseline.json` (system wait + mean / p95 trip duration when tripinfo is enabled).
+
+2. **Train**
+
+   ```bash
+   python train_phase_c.py
+   ```
+
+   Config: **`config_phase_c.yaml`**. Logs **`runs/phase_c_train.csv`**. Checkpoints **`checkpoints/phase_c/best_<tls_id>.pth`**.
+
+3. **SUMO-GUI**
+
+   ```bash
+   python eval_gui_phase_c.py
+   # or
+   python test_phase_c.py
+   ```
 
 ## Repository layout
 
@@ -105,17 +152,20 @@ Training uses **`SumoEnvironment`** with `single_agent=False` (PettingZoo `paral
 |------|------|
 | `config.yaml` | Phase A paths & hyperparameters |
 | `config_phase_b.yaml` | Phase B paths & hyperparameters |
+| `config_phase_c.yaml` | Phase C paths & hyperparameters |
 | `train.py` | Phase A training + validation |
 | `train_phase_b.py` | Phase B multi-agent (IDQN) training |
-| `baseline.py` / `baseline_phase_b.py` | Fixed-time baselines |
+| `train_phase_c.py` | Phase C multi-agent (IDQN per TLS) |
+| `baseline.py` / `baseline_phase_b.py` / `baseline_phase_c.py` | Fixed-time baselines |
 | `agent.py` | Double Dueling DQN, uniform replay |
 | `model.py` | Dueling network (compact 128 trunk) |
 | `replay.py` | Uniform replay buffer |
-| `eval_gui.py` / `eval_gui_phase_b.py` | Phase A / Phase B GUI eval |
-| `test_phase_b.py` | Shortcut for Phase B GUI |
+| `eval_gui.py` / `eval_gui_phase_b.py` / `eval_gui_phase_c.py` | GUI eval |
+| `test_phase_b.py` / `test_phase_c.py` | Shortcuts for Phase B / C GUI |
 | `stress_phase_a.py` | Multi-seed Phase A stress sweep |
 | `single.*` | Phase A SUMO scenario |
 | `two.*` | Phase B SUMO scenario (double corridor) |
+| `phase_c.*`, `phase_c_plain.*` | Phase C SUMO scenario & editable plain inputs |
 
 ## References
 

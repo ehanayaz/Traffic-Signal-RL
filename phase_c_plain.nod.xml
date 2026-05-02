@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2026-05-02T17:57:38.072438+05:00 by Eclipse SUMO netconvert 1.25.0
+<netconvertConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/netconvertConfiguration.xsd">
+
+    <input>
+        <sumo-net-file value="phase_c_lane3_gen.net.xml"/>
+    </input>
+
+    <output>
+        <output-file value="/dev/null"/>
+        <plain-output-prefix value="phase_c_plain"/>
+    </output>
+
+    <processing>
+        <geometry.min-radius.fix.railways value="false"/>
+        <geometry.avoid-overlap value="false"/>
+        <geometry.max-grade.fix value="false"/>
+        <offset.disable-normalization value="true"/>
+        <lefthand value="0"/>
+    </processing>
+
+    <junctions>
+        <no-turnarounds value="true"/>
+        <junctions.corner-detail value="5"/>
+        <junctions.limit-turn-speed value="5.50"/>
+        <rectangular-lane-cut value="0"/>
+    </junctions>
+
+    <pedestrian>
+        <walkingareas value="0"/>
+    </pedestrian>
+
+</netconvertConfiguration>
+-->
+
+<nodes version="1.20" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/nodes_file.xsd">
+    <location netOffset="0.00,0.00" convBoundary="0.00,0.00,560.00,420.00" origBoundary="0.00,0.00,560.00,420.00" projParameter="!"/>
+
+    <node id="A0" x="100.00" y="100.00" type="traffic_light" tl="A0"/>
+    <node id="A1" x="100.00" y="320.00" type="traffic_light" tl="A1"/>
+    <!-- Asymmetric B column: +18 m east; B1 slightly north vs A1/C1 row. -->
+    <node id="B0" x="298.00" y="100.00" type="traffic_light" tl="B0"/>
+    <node id="B1" x="298.00" y="313.00" type="traffic_light" tl="B1"/>
+    <node id="C0" x="460.00" y="100.00" type="traffic_light" tl="C0"/>
+    <node id="C1" x="460.00" y="320.00" type="traffic_light" tl="C1"/>
+    <node id="bottom0" x="100.00" y="0.00" type="dead_end" fringe="outer"/>
+    <node id="bottom1" x="280.00" y="0.00" type="dead_end" fringe="outer"/>
+    <node id="bottom2" x="460.00" y="0.00" type="dead_end" fringe="outer"/>
+    <node id="left0" x="0.00" y="100.00" type="dead_end" fringe="outer"/>
+    <node id="left1" x="0.00" y="320.00" type="dead_end" fringe="outer"/>
+    <node id="right0" x="560.00" y="100.00" type="dead_end" fringe="outer"/>
+    <node id="right1" x="560.00" y="320.00" type="dead_end" fringe="outer"/>
+    <node id="top0" x="100.00" y="420.00" type="dead_end" fringe="outer"/>
+    <node id="top1" x="280.00" y="420.00" type="dead_end" fringe="outer"/>
+    <node id="top2" x="460.00" y="420.00" type="dead_end" fringe="outer"/>
+</nodes>

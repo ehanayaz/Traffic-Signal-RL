@@ -147,6 +147,7 @@ venv.bak/
 # Phase A generated artifacts
 runs/
 checkpoints/*.pth
+checkpoints/**/*.pth
 
 # Spyder project settings
 .spyderproject
