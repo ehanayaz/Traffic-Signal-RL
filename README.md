@@ -85,6 +85,16 @@ Training uses **`SumoEnvironment`** with `single_agent=False` (PettingZoo `paral
 
    Compare validation **`val_system_mean_wait`** (from the CSV) to Phase B baseline **`mean_system_mean_waiting_time`**. Lower is better.
 
+4. **SUMO-GUI (greedy, both TLS)**
+
+   ```bash
+   python eval_gui_phase_b.py
+   # or
+   python test_phase_b.py
+   ```
+
+   Loads **`checkpoints/phase_b/best_B.pth`** and **`best_E.pth`** (falls back to **`last_*.pth`**).
+
 ## Phase C (next)
 
 - **2×2 grid:** four TLS, same IDQN pattern or shared weights + PettingZoo parallel API once versions align; add neighbor-aware observations if needed.
@@ -101,7 +111,8 @@ Training uses **`SumoEnvironment`** with `single_agent=False` (PettingZoo `paral
 | `agent.py` | Double Dueling DQN, uniform replay |
 | `model.py` | Dueling network (compact 128 trunk) |
 | `replay.py` | Uniform replay buffer |
-| `eval_gui.py` | Phase A GUI eval |
+| `eval_gui.py` / `eval_gui_phase_b.py` | Phase A / Phase B GUI eval |
+| `test_phase_b.py` | Shortcut for Phase B GUI |
 | `stress_phase_a.py` | Multi-seed Phase A stress sweep |
 | `single.*` | Phase A SUMO scenario |
 | `two.*` | Phase B SUMO scenario (double corridor) |
