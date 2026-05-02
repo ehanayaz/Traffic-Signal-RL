@@ -59,22 +59,52 @@ Writes `runs/stress/phase_a_stress_summary.json` and a repo-root **`phase_a_stre
 
 Compare **validation `val_mean_wait`** in `runs/phase_a_train.csv` (lower is better) to **`mean_system_mean_waiting_time`** from `runs/phase_a_baseline.json`. RL should beat fixed-time on that metric after sufficient episodes.
 
-## Scaling (later phases)
+## Phase B — two intersections (corridor)
 
-- **2 lights / 2×2:** use sumo-rl **PettingZoo `parallel_env`**, one agent per TLS, neighbor features — same repo layout; extend `config.yaml` and add a multi-agent train script.
+Two TLS (**`B`** and **`E`**) on the SUMO-RL **double-intersection** scenario (`two.net.xml`, `two.rou.xml`, copied from the sumo-rl package). **Independent Double DQN (IDQN):** one `DQNAgent` per signal, separate replay buffers; actions every RL step are joint `{B: a0, E: a1}`.
+
+Training uses **`SumoEnvironment`** with `single_agent=False` (PettingZoo `parallel_env` is avoided here due to version quirks).
+
+1. **Baseline**
+
+   ```bash
+   python baseline_phase_b.py
+   ```
+
+   Writes `runs/phase_b_baseline.json` (`mean_system_mean_waiting_time`).
+
+2. **Train**
+
+   ```bash
+   python train_phase_b.py
+   ```
+
+   Config: **`config_phase_b.yaml`**. Logs **`runs/phase_b_train.csv`**. Saves **`checkpoints/phase_b/best_<tls_id>.pth`** when **validation mean `system_mean_waiting_time`** (greedy, averaged over val episodes) improves.
+
+3. **Success criterion**
+
+   Compare validation **`val_system_mean_wait`** (from the CSV) to Phase B baseline **`mean_system_mean_waiting_time`**. Lower is better.
+
+## Phase C (next)
+
+- **2×2 grid:** four TLS, same IDQN pattern or shared weights + PettingZoo parallel API once versions align; add neighbor-aware observations if needed.
 
 ## Repository layout
 
 | File | Role |
 |------|------|
-| `config.yaml` | Paths, env kwargs, training & validation |
+| `config.yaml` | Phase A paths & hyperparameters |
+| `config_phase_b.yaml` | Phase B paths & hyperparameters |
 | `train.py` | Phase A training + validation |
-| `baseline.py` | Fixed-time baseline KPIs |
+| `train_phase_b.py` | Phase B multi-agent (IDQN) training |
+| `baseline.py` / `baseline_phase_b.py` | Fixed-time baselines |
 | `agent.py` | Double Dueling DQN, uniform replay |
 | `model.py` | Dueling network (compact 128 trunk) |
 | `replay.py` | Uniform replay buffer |
-| `eval_gui.py` | Load best weights, SUMO-GUI |
-| `single.net.xml`, `single.rou.xml`, `single.sumocfg` | SUMO scenario |
+| `eval_gui.py` | Phase A GUI eval |
+| `stress_phase_a.py` | Multi-seed Phase A stress sweep |
+| `single.*` | Phase A SUMO scenario |
+| `two.*` | Phase B SUMO scenario (double corridor) |
 
 ## References
 

@@ -1,0 +1,40 @@
+# Phase B — two intersections (corridor), independent Double DQN per TLS (IDQN).
+# Network: two.net.xml / two.rou.xml (SUMO-RL “double” corridor scenario, tls B and E).
+
+paths:
+  net_file: "two.net.xml"
+  route_file: "two.rou.xml"
+
+env:
+  num_seconds: 1500
+  delta_time: 5
+  yellow_time: 4
+  min_green: 10
+  waiting_time_memory: 1000
+  max_depart_delay: 0
+  sumo_warnings: false
+  reward_fn: "diff-waiting-time"
+  sumo_seed: 42
+
+training:
+  episodes: 150
+  lr: 0.001
+  gamma: 0.99
+  batch_size: 128
+  max_memory: 100000
+  max_grad: 1.0
+  epsilon_start: 1.0
+  epsilon_end: 0.01
+  epsilon_decay: 0.995
+  target_update_tau: 0.05
+  target_sync_steps: 500
+  hidden_size: 128
+
+validation:
+  every_episodes: 10
+  episodes: 3
+
+outputs:
+  log_csv: "runs/phase_b_train.csv"
+  summary_json: "runs/phase_b_summary.json"
+  checkpoint_dir: "checkpoints/phase_b"

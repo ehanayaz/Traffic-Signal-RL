@@ -26,10 +26,11 @@ Open benchmarks / code ecosystems:
   • Lucas Alegre. “sumo-rl” — Gymnasium / PettingZoo environments for traffic signal control in SUMO
     (default reward e.g. diff-waiting-time). https://github.com/LucasAlegre/sumo-rl
 
-Architecture (Phase A codebase)
--------------------------------
+Architecture (this codebase)
+-----------------------------
   • Gymnasium + sumo-rl: standardized observation/reward, fewer custom TraCI bugs.
-  • Dueling DQN + Double DQN + uniform replay (simple stable baseline; cf. Traffic-Control-RL style).
+  • Dueling DQN + Double DQN + uniform replay (Phase A single-agent).
+  • Phase B: independent DQN per TLS (IDQN / independent learners on joint MDP step).
 
 Evaluation metrics (papers / practice)
 ---------------------------------------
